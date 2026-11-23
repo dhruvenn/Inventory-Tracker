@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Inventory">
+<meta name="theme-color" content="#b9a8d8">
+<title>Inventory</title>
+<style>
+  :root {
+    --bg: #b9a8d8; --grid: rgba(255,255,255,0.22);
+    --panel: #efe9f9; --panel-2: #e4dbf5; --header: #cfe7df;
+    --ink: #17142a; --muted: #5d5673;
+    --accent: #f7d674; --accent-2: #f5b97a; --ok: #cfe7df; --warn: #f5b97a;
+    --border: #17142a; --shadow: #17142a;
+    color-scheme: light;
+  }
+  [data-theme="dark"] {
+    --bg: #1b1730; --grid: rgba(255,255,255,0.05);
+    --panel: #2a2445; --panel-2: #342c55; --header: #2f4f4b;
+    --ink: #f3efff; --muted: #b3aacb;
+    --accent: #e9c25e; --accent-2: #d98f52; --ok: #2f4f4b; --warn: #d98f52;
+    --border: #000000; --shadow: #000000;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    font-family: "Space Grotesk", "Helvetica Neue", -apple-system, Arial, sans-serif;
+    color: var(--ink); background-color: var(--bg);
+    background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 56px 56px;
+    padding: env(safe-area-inset-top, 0) 0 calc(120px + env(safe-area-inset-bottom, 0));
+    -webkit-font-smoothing: antialiased; transition: background-color .3s, color .3s;
+  }
+  header {
+    position: sticky; top: 0; z-index: 10; background: var(--header);
+    border-bottom: 2px solid var(--border); padding: 14px 16px;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  }
+  header h1 { font-size: 20px; font-weight: 700; margin: 0; }
+  .hbtns { display: flex; gap: 8px; }
+  .round {
+    width: 40px; height: 40px; border-radius: 50%; background: var(--panel); color: var(--ink);
+    border: 2px solid var(--border); box-shadow: 3px 3px 0 var(--shadow);
+    font-size: 16px; cursor: pointer; display: grid; place-items: center; padding: 0; flex-shrink: 0;
+  }
+  .round:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 var(--shadow); }
+
+  main { padding: 16px 14px; }
+  section.view { display: none; }
+  section.view.active { display: block; }
+
+  .card { background: var(--panel); border: 2px solid var(--border); border-radius: 18px; box-shadow: 5px 5px 0 var(--shadow); padding: 18px; margin-bottom: 18px; }
+  .card.flat { padding: 4px 16px; }
+  .label { font-size: 13px; color: var(--muted); margin-bottom: 4px; font-weight: 500; }
+  .big { font-size: 30px; font-weight: 700; letter-spacing: -0.6px; font-variant-numeric: tabular-nums; }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.45; }
+  .section-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; margin: 6px 4px 10px; display: flex; justify-content: space-between; align-items: center; }
+  .section-title .tot { text-transform: none; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .tile { background: var(--panel); border: 2px solid var(--border); border-radius: 16px; box-shadow: 4px 4px 0 var(--shadow); padding: 14px; }
+  .tile .k { font-size: 12px; color: var(--muted); font-weight: 500; }
+  .tile .v { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 4px; }
+  .tile .s { font-size: 12px; color: var(--muted); margin-top: 3px; }
+
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 14px 0; border-bottom: 2px solid var(--border); cursor: pointer; }
+  .row:last-child { border-bottom: none; }
+  .row .meta { font-size: 13px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+  .amt { font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; text-align: right; }
+  .amt.muted { color: var(--muted); font-weight: 500; }
+
+  .bar { height: 12px; border-radius: 8px; background: var(--panel-2); border: 2px solid var(--border); overflow: hidden; margin-top: 10px; display: flex; }
+  .bar > span { display: block; height: 100%; border-right: 2px solid var(--border); }
+  .seg-delivered { background: var(--accent); }
+  .seg-transit { background: var(--accent-2); }
+  .seg-remaining { background: var(--ok); }
+
+  .chart { display: flex; align-items: flex-end; gap: 10px; height: 150px; padding-top: 10px; border-bottom: 2px solid var(--border); }
+  .chart .col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+  .chart .fill { width: 100%; background: var(--accent); border: 2px solid var(--border); border-bottom: none; border-radius: 10px 10px 0 0; min-height: 4px; }
+  .chart .lbl { font-size: 11px; color: var(--muted); margin-top: 6px; }
+  .chart .val { font-size: 11px; font-weight: 700; margin-bottom: 4px; }
+
+  .tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; border: 2px solid var(--border); background: var(--ok); margin-left: 6px; vertical-align: middle; white-space: nowrap; }
+  .tag.warn { background: var(--warn); }
+  .tag.plain { background: var(--panel); }
+
+  .btn { width: 100%; margin-top: 16px; padding: 15px; cursor: pointer; background: var(--accent); color: var(--ink); border: 2px solid var(--border); border-radius: 16px; box-shadow: 4px 4px 0 var(--shadow); font: inherit; font-size: 16px; font-weight: 700; }
+  .btn:active { transform: translate(2px,2px); box-shadow: 2px 2px 0 var(--shadow); }
+  .btn.alt { background: var(--panel); }
+  .btn.danger { background: var(--accent-2); }
+  .btn.small { width: auto; padding: 9px 14px; margin-top: 0; font-size: 14px; border-radius: 12px; box-shadow: 3px 3px 0 var(--shadow); }
+
+  input, select, textarea { width: 100%; font: inherit; font-size: 16px; color: var(--ink); background: var(--panel); border: 2px solid var(--border); border-radius: 14px; padding: 12px 14px; margin-top: 6px; outline: none; -webkit-appearance: none; appearance: none; }
+  input:focus, select:focus, textarea:focus { box-shadow: 3px 3px 0 var(--shadow); }
+  label { display: block; font-size: 13px; color: var(--muted); margin-top: 14px; font-weight: 500; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .seg { display: flex; gap: 8px; margin-top: 6px; }
+  .seg button { flex: 1; padding: 10px; border-radius: 12px; font: inherit; font-size: 14px; font-weight: 700; background: var(--panel); color: var(--ink); border: 2px solid var(--border); cursor: pointer; }
+  .seg button.on { background: var(--accent); box-shadow: 3px 3px 0 var(--shadow); }
+  .preview { margin-top: 12px; padding: 12px; border-radius: 14px; background: var(--panel-2); border: 2px dashed var(--border); font-size: 14px; line-height: 1.6; }
+  .preview b { font-variant-numeric: tabular-nums; }
+
+  .tabbar { position: fixed; left: 14px; right: 14px; bottom: calc(14px + env(safe-area-inset-bottom, 0)); display: flex; justify-content: space-around; gap: 4px; padding: 8px; z-index: 20; background: var(--panel); border: 2px solid var(--border); border-radius: 22px; box-shadow: 5px 5px 0 var(--shadow); }
+  .tab { flex: 1; border: 2px solid transparent; background: transparent; color: var(--ink); font: inherit; font-size: 11px; font-weight: 600; padding: 7px 0; border-radius: 14px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .tab .ico { font-size: 18px; line-height: 1; }
+  .tab.active { background: var(--accent); border-color: var(--border); box-shadow: 2px 2px 0 var(--shadow); }
+
+  .fab { position: fixed; right: 22px; bottom: calc(100px + env(safe-area-inset-bottom, 0)); width: 60px; height: 60px; border-radius: 50%; cursor: pointer; background: var(--accent); color: var(--ink); border: 2px solid var(--border); box-shadow: 4px 4px 0 var(--shadow); font-size: 32px; line-height: 1; display: grid; place-items: center; padding: 0 0 4px; z-index: 25; }
+  .fab:active { transform: translate(2px,2px); box-shadow: 2px 2px 0 var(--shadow); }
+
+  .sheet { position: fixed; inset: 0; background: rgba(20,16,40,.35); display: none; z-index: 30; align-items: flex-end; }
+  .sheet.open { display: flex; }
+  .sheet .panel { width: 100%; max-height: 92vh; overflow-y: auto; border-radius: 26px 26px 0 0; padding: 18px 18px calc(26px + env(safe-area-inset-bottom, 0)); background: var(--panel); border: 2px solid var(--border); border-bottom: none; box-shadow: 0 -4px 0 var(--shadow); }
+  .grab { width: 44px; height: 6px; border-radius: 4px; background: var(--border); margin: 0 auto 14px; }
+  .sheet h2 { font-size: 20px; margin: 0 0 6px; }
+
+  .toast { position: fixed; left: 50%; bottom: 110px; transform: translateX(-50%) translateY(20px); padding: 10px 16px; border-radius: 14px; font-size: 14px; font-weight: 700; opacity: 0; pointer-events: none; transition: all .3s; z-index: 40; background: var(--accent); color: var(--ink); border: 2px solid var(--border); box-shadow: 3px 3px 0 var(--shadow); white-space: nowrap; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .empty { text-align: center; color: var(--muted); padding: 22px 10px; font-size: 14px; }
+  .list-inline { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .shot { width: 100%; border-radius: 14px; border: 2px solid var(--border); margin-top: 10px; }
+  .divider { height: 2px; background: var(--border); margin: 14px 0; border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1 id="title">Dashboard</h1>
+  <div class="hbtns">
+    <button class="round" id="themeBtn" aria-label="Theme">◐</button>
+    <button class="round" id="syncBtn" aria-label="Refresh">↻</button>
+    <button class="round" id="setupBtn" aria-label="Setup">⚙</button>
+  </div>
+</header>
+
+<main>
+  <!-- STOCK -->
+  <section class="view" id="view-stock">
+    <div class="section-title"><span>Remaining stock</span></div>
+    <div id="stockCards"></div>
+    <div class="section-title"><span>Stock added</span><span class="tot" id="stockLogCount"></span></div>
+    <div class="card flat" id="stockLog"></div>
+  </section>
+
+  <!-- DELIVERIES -->
+  <section class="view" id="view-deliveries">
+    <div class="section-title"><span>Dispatched and delivered</span><span class="tot" id="delCount"></span></div>
+    <div class="card flat" id="deliveryList"></div>
+  </section>
+
+  <!-- DASHBOARD -->
+  <section class="view active" id="view-dashboard">
+    <div class="grid2">
+      <div class="tile"><div class="k">Remaining stock</div><div class="v" id="dRemaining">0</div><div class="s" id="dRemainingS"></div></div>
+      <div class="tile"><div class="k">Delivered stock</div><div class="v" id="dDelivered">0</div><div class="s" id="dDeliveredS"></div></div>
+      <div class="tile"><div class="k">Payment pending</div><div class="v" id="dPending">₹0</div><div class="s" id="dPendingS"></div></div>
+      <div class="tile"><div class="k">Payment received</div><div class="v" id="dReceived">₹0</div><div class="s" id="dReceivedS"></div></div>
+    </div>
+
+    <div class="section-title" style="margin-top:20px"><span>Stock performance</span></div>
+    <div class="card" id="perf"></div>
+
+    <div class="section-title"><span>Sheets delivered per month</span></div>
+    <div class="card" id="monthly"></div>
+
+    <div class="section-title"><span>Payments due</span><span class="tot" id="dueCount"></span></div>
+    <div class="card flat" id="dueList"></div>
+  </section>
+
+  <!-- PAYMENTS -->
+  <section class="view" id="view-payments">
+    <div class="section-title"><span>Payments received</span><span class="tot" id="payCount"></span></div>
+    <div class="card flat" id="paymentList"></div>
+
+    <div class="section-title"><span>Bank accounts</span></div>
+    <div class="card flat" id="bankList"></div>
+    <button class="btn alt" id="addBankBtn">+ Add bank account</button>
+  </section>
+
+  <!-- CUSTOMERS -->
+  <section class="view" id="view-customers">
+    <div class="section-title"><span>Customers</span><span class="tot" id="custCount"></span></div>
+    <div class="card flat" id="customerList"></div>
+    <button class="btn" id="addCustomerBtn">+ Add customer</button>
+  </section>
+
+  <!-- SETUP -->
+  <section class="view" id="view-setup">
+    <div class="section-title"><span>Connection</span></div>
+    <div class="card">
+      <label>Apps Script Web App URL</label>
+      <input id="scriptUrl" placeholder="https://script.google.com/macros/s/.../exec">
+      <div class="hint">Paste the URL from your inventory script deployment. It ends with /exec.</div>
+      <label>Your business name (signed on reminders)</label>
+      <input id="bizName" placeholder="e.g. Shree CNC Sheets">
+      <button class="btn" id="saveUrlBtn">Save and connect</button>
+    </div>
+  </section>
+</main>
+
+<button class="fab" id="fab" aria-label="Add">+</button>
+
+<nav class="tabbar">
+  <button class="tab" data-view="stock"><span class="ico">▦</span>Stock</button>
+  <button class="tab" data-view="deliveries"><span class="ico">➜</span>Deliveries</button>
+  <button class="tab active" data-view="dashboard"><span class="ico">◎</span>Dashboard</button>
+  <button class="tab" data-view="payments"><span class="ico">₹</span>Payments</button>
+  <button class="tab" data-view="customers"><span class="ico">☺</span>Customers</button>
+</nav>
+
+<div class="sheet" id="sheet"><div class="panel"><div class="grab"></div><h2 id="sheetTitle"></h2><div id="sheetBody"></div></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============ CONFIG ============ */
+// Paste your inventory script /exec URL between the quotes (optional).
+const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyNEc5ZX8oIUHGn6s30gUQgW6Xk8TmBCoe8R5SY4tDf2jh_Ck7LLs76kJ6byi4dYA9tKw/exec';
+const LS_KEY = 'inv_script_url';
+const THEME_KEY = 'inv_theme';
+const DEFAULT_SPB = 25;
+
+/* ============ STATE ============ */
+let S = { products: [], stock: [], customers: [], deliveries: [], payments: [], banks: [] };
+
+/* ============ HELPERS ============ */
+const $ = s => document.querySelector(s);
+const num = v => Number(v || 0);
+const fmt = n => '₹' + Math.round(num(n)).toLocaleString('en-IN');
+const fmtN = n => Math.round(num(n)).toLocaleString('en-IN');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const todayISO = () => new Date().toLocaleDateString('en-CA');
+const nowTime = () => new Date().toTimeString().slice(0, 5);
+const monthKey = d => String(d || '').slice(0, 7);
+const byId = (arr, id) => arr.find(x => String(x.id) === String(id));
+const same = (a, b) => String(a) === String(b);
+
+const spbOf = pid => num((byId(S.products, pid) || {}).sheets_per_bunch) || DEFAULT_SPB;
+const prodName = pid => (byId(S.products, pid) || {}).name || '—';
+const custOf = id => byId(S.customers, id) || {};
+const bankOf = id => byId(S.banks, id) || {};
+const bunchText = (sheets, n = DEFAULT_SPB) => {
+  const b = Math.floor(sheets / n), r = sheets % n;
+  return `${b} bunch${b === 1 ? '' : 'es'}${r ? ' + ' + r + ' sheets' : ''}`;
+};
+
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 1900);
+}
+
+/* ============ THEME ============ */
+function applyTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  localStorage.setItem(THEME_KEY, t);
+  $('#themeBtn').textContent = t === 'dark' ? '☀' : '☾';
+}
+
+/* ============ BACKEND ============ */
+const url = () => localStorage.getItem(LS_KEY) || (DEFAULT_SCRIPT_URL.startsWith('https://script.google.com/') ? DEFAULT_SCRIPT_URL : '');
+
+async function api(method, payload) {
+  const u = url();
+  if (!u) throw new Error('Connect your script in Setup first');
+  if (method === 'GET') return (await fetch(u)).json();
+  return (await fetch(u, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) })).json();
+}
+
+async function load() {
+  try {
+    const d = await api('GET');
+    S.products = d.products || []; S.stock = d.stock || []; S.customers = d.customers || [];
+    S.deliveries = d.deliveries || []; S.payments = d.payments || []; S.banks = d.banks || [];
+    render();
+  } catch (e) { toast(e.message || 'Could not load data'); }
+}
+
+async function write(payload) {
+  try { const r = await api('POST', payload); await load(); return r; }
+  catch (e) { toast('Save failed'); throw e; }
+}
+
+/* ============ CALCULATIONS ============ */
+const paidFor = did => S.payments.filter(p => same(p.delivery_id, did)).reduce((s, p) => s + num(p.amount), 0);
+const balanceOf = d => num(d.total) - paidFor(d.id);
+const stockIn = pid => S.stock.filter(s => same(s.product_id, pid)).reduce((t, s) => t + num(s.sheets), 0);
+const sentSheets = (pid, status) => S.deliveries
+  .filter(d => same(d.product_id, pid) && (!status || d.status === status))
+  .reduce((t, d) => t + num(d.sheets), 0);
+const remainingOf = pid => stockIn(pid) - sentSheets(pid);
+const isOverdue = d => d.due_date && d.due_date < todayISO() && balanceOf(d) > 0;
+const pendingDeliveries = () => S.deliveries.filter(d => balanceOf(d) > 0);
+const bankBalance = bid => {
+  const inflow = S.payments.filter(p => same(p.bank_id, bid)).reduce((t, p) => t + num(p.amount), 0);
+  const outflow = S.deliveries.filter(d => same(d.charge_bank_id, bid)).reduce((t, d) => t + num(d.delivery_charge), 0);
+  return inflow - outflow;
+};
+
+/* ============ RENDER ============ */
+function render() {
+  renderStock(); renderDeliveries(); renderDashboard(); renderPayments(); renderCustomers();
+}
+
+function renderStock() {
+  $('#stockCards').innerHTML = S.products.map(p => {
+    const rem = remainingOf(p.id), spb = spbOf(p.id);
+    const dl = sentSheets(p.id, 'delivered');
+    return `<div class="card" data-act="" >
+      <div class="list-inline"><div><div style="font-weight:700;font-size:17px">${esc(p.name)}</div>
+      <div class="meta" style="font-size:13px;color:var(--muted)">${esc(p.size || '')} · ${spb} sheets per bunch</div></div></div>
+      <div class="big" style="margin-top:12px">${fmtN(rem)} <span style="font-size:15px">sheets</span></div>
+      <div class="hint">${bunchText(Math.max(rem, 0), spb)} in stock · ${bunchText(dl, spb)} delivered</div>
+    </div>`;
+  }).join('') || '<div class="empty">No products. Add them in the Apps Script sheet.</div>';
+
+  const log = [...S.stock].sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  $('#stockLogCount').textContent = log.length ? log.length + ' entries' : '';
+  $('#stockLog').innerHTML = log.length ? log.map(s => `<div class="row" data-act="stock" data-id="${s.id}">
+      <div><div>${esc(prodName(s.product_id))}</div>
+      <div class="meta">${esc(String(s.date).slice(0, 10))} · ${bunchText(num(s.sheets), spbOf(s.product_id))}${s.note ? ' · ' + esc(s.note) : ''}</div></div>
+      <div class="amt">+${fmtN(s.sheets)}</div></div>`).join('')
+    : '<div class="empty">No stock added yet. Tap + to add stock.</div>';
+}
+
+function renderDeliveries() {
+  const list = [...S.deliveries].sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  $('#delCount').textContent = list.length ? list.length + ' total' : '';
+  $('#deliveryList').innerHTML = list.length ? list.map(d => {
+    const bal = balanceOf(d);
+    const st = d.status === 'delivered' ? 'Delivered' : 'Dispatched';
+    const pay = bal <= 0 ? '<span class="tag">Paid</span>' : (paidFor(d.id) > 0 ? '<span class="tag warn">Partial</span>' : '<span class="tag warn">Unpaid</span>');
+    return `<div class="row" data-act="delivery" data-id="${d.id}">
+      <div><div>${esc(custOf(d.customer_id).shop_name || custOf(d.customer_id).name || 'Customer')} ${pay}</div>
+      <div class="meta">${esc(String(d.date).slice(0, 10))} · ${esc(prodName(d.product_id))} · ${bunchText(num(d.sheets), spbOf(d.product_id))}</div>
+      <div class="meta">${st}${d.bill_no ? ' · Bill ' + esc(d.bill_no) : ''}${d.due_date ? ' · Due ' + esc(d.due_date) : ''}</div></div>
+      <div class="amt">${fmt(d.total)}<div class="meta">Balance ${fmt(bal)}</div></div></div>`;
+  }).join('') : '<div class="empty">No deliveries yet. Tap + to create one.</div>';
+}
+
+function renderDashboard() {
+  const remaining = S.products.reduce((t, p) => t + remainingOf(p.id), 0);
+  const delivered = S.products.reduce((t, p) => t + sentSheets(p.id, 'delivered'), 0);
+  const deliveredBunches = Math.floor(delivered / DEFAULT_SPB);
+  const pending = pendingDeliveries().reduce((t, d) => t + balanceOf(d), 0);
+  const received = S.payments.reduce((t, p) => t + num(p.amount), 0);
+  $('#dRemaining').textContent = fmtN(remaining);
+  $('#dRemainingS').textContent = bunchText(Math.max(remaining, 0));
+  $('#dDelivered').textContent = fmtN(deliveredBunches) + ' bunch' + (deliveredBunches === 1 ? '' : 'es');
+  $('#dDeliveredS').textContent = fmtN(delivered) + ' sheets delivered';
+  $('#dPending').textContent = fmt(pending);
+  $('#dPendingS').textContent = pendingDeliveries().length + ' deliveries open';
+  $('#dReceived').textContent = fmt(received);
+  $('#dReceivedS').textContent = S.payments.length + ' payments';
+
+  // Stock performance: delivered vs in transit vs remaining, per product
+  $('#perf').innerHTML = S.products.map(p => {
+    const inS = stockIn(p.id) || 1;
+    const del = sentSheets(p.id, 'delivered'), tr = sentSheets(p.id, 'dispatched'), rem = Math.max(0, remainingOf(p.id));
+    const pc = v => Math.min(100, (v / inS) * 100).toFixed(1);
+    return `<div style="margin-bottom:16px">
+      <div class="list-inline"><span style="font-weight:700">${esc(p.name)}</span><span class="amt">${fmtN(stockIn(p.id))} in</span></div>
+      <div class="bar">
+        <span class="seg-delivered" style="width:${pc(del)}%"></span>
+        <span class="seg-transit" style="width:${pc(tr)}%"></span>
+        <span class="seg-remaining" style="width:${pc(rem)}%"></span>
+      </div>
+      <div class="hint">Delivered ${fmtN(del)} · In transit ${fmtN(tr)} · Remaining ${fmtN(rem)}</div>
+    </div>`;
+  }).join('') + `<div class="hint" style="margin-top:4px">
+      <span class="tag" style="background:var(--accent)">Delivered</span>
+      <span class="tag" style="background:var(--accent-2)">In transit</span>
+      <span class="tag">Remaining</span></div>`;
+
+  // Monthly delivered sheets for last 6 months
+  const months = [];
+  const now = new Date();
+  for (let i = 5; i >= 0; i--) {
+    const dt = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push({ key: dt.toISOString().slice(0, 7), label: dt.toLocaleString('en-IN', { month: 'short' }) });
+  }
+  const vals = months.map(m => S.deliveries.filter(d => monthKey(d.date) === m.key).reduce((t, d) => t + num(d.sheets), 0));
+  const maxV = Math.max(1, ...vals);
+  $('#monthly').innerHTML = `<div class="chart">${months.map((m, i) => `
+    <div class="col"><div class="val">${vals[i] ? fmtN(vals[i]) : ''}</div>
+      <div class="fill" style="height:${(vals[i] / maxV) * 100}%"></div>
+      <div class="lbl">${m.label}</div></div>`).join('')}</div>`;
+
+  const due = pendingDeliveries().sort((a, b) => String(a.due_date || '9999').localeCompare(String(b.due_date || '9999')));
+  $('#dueCount').textContent = due.length ? due.length + ' open' : '';
+  $('#dueList').innerHTML = due.length ? due.map(d => {
+    const c = custOf(d.customer_id);
+    return `<div class="row" data-act="delivery" data-id="${d.id}">
+      <div><div>${esc(c.shop_name || c.name || 'Customer')}${isOverdue(d) ? ' <span class="tag warn">Overdue</span>' : ''}</div>
+      <div class="meta">Due ${esc(d.due_date || 'not set')}${d.bill_no ? ' · Bill ' + esc(d.bill_no) : ''}</div></div>
+      <div style="display:flex;align-items:center;gap:8px"><div class="amt">${fmt(balanceOf(d))}</div><button class="round" style="width:36px;height:36px;font-size:15px" data-act="wa" data-id="${d.id}" aria-label="WhatsApp reminder">💬</button></div></div>`;
+  }).join('') : '<div class="empty">No payments pending</div>';
+}
+
+function renderPayments() {
+  const list = [...S.payments].sort((a, b) => (String(b.date) + String(b.time)).localeCompare(String(a.date) + String(a.time)));
+  $('#payCount').textContent = list.length ? list.length + ' total' : '';
+  $('#paymentList').innerHTML = list.length ? list.map(p => {
+    const c = custOf(p.customer_id);
+    const where = p.mode === 'online' ? esc(bankOf(p.bank_id).name || 'Bank') : 'Cash';
+    return `<div class="row" data-act="payment" data-id="${p.id}">
+      <div><div>${esc(c.shop_name || c.name || 'Customer')}${p.delivery_id ? '' : ' <span class="tag plain">Advance</span>'}</div>
+      <div class="meta">${esc(String(p.date).slice(0, 10))} ${esc(p.time || '')} · ${where}${p.txn_id ? ' · Txn ' + esc(p.txn_id) : ''}</div></div>
+      <div class="amt">${fmt(p.amount)}</div></div>`;
+  }).join('') : '<div class="empty">No payments recorded yet</div>';
+
+  $('#bankList').innerHTML = S.banks.length ? S.banks.map(b => `<div class="row" data-act="bank" data-id="${b.id}">
+      <div><div>${esc(b.name)}</div><div class="meta">${esc(b.bank_name || '')}</div></div>
+      <div class="amt">${fmt(bankBalance(b.id))}</div></div>`).join('')
+    : '<div class="empty">Add your bank accounts to track where each payment lands.</div>';
+}
+
+function renderCustomers() {
+  $('#custCount').textContent = S.customers.length ? S.customers.length + ' customers' : '';
+  $('#customerList').innerHTML = S.customers.length ? S.customers.map(c => {
+    const due = S.deliveries.filter(d => same(d.customer_id, c.id)).reduce((t, d) => t + balanceOf(d), 0);
+    return `<div class="row" data-act="customer" data-id="${c.id}">
+      <div><div>${esc(c.shop_name || c.name)}</div>
+      <div class="meta">${esc(c.name)} · ${esc(c.mobile || 'no mobile')}</div>
+      <div class="meta">${esc(c.location || '')}</div></div>
+      <div class="amt">${due > 0 ? fmt(due) + '<div class="meta">due</div>' : '<span class="tag">Clear</span>'}</div></div>`;
+  }).join('') : '<div class="empty">No customers yet. Add your first customer.</div>';
+}
+
+/* ============ SHEET HELPERS ============ */
+function openSheet(title, html) { $('#sheetTitle').textContent = title; $('#sheetBody').innerHTML = html; $('#sheet').classList.add('open'); }
+function closeSheet() { $('#sheet').classList.remove('open'); }
+$('#sheet').addEventListener('click', e => { if (e.target.id === 'sheet') closeSheet(); });
+const opts = (list, vk, lk, sel) => list.map(x => `<option value="${esc(x[vk])}" ${same(x[vk], sel) ? 'selected' : ''}>${esc(x[lk])}</option>`).join('');
+
+/* ============ STOCK ============ */
+function stockForm(s = {}) {
+  const pid = s.product_id || (S.products[0] || {}).id;
+  return `
+    <label>Product</label>
+    <select id="f_prod">${opts(S.products.map(p => ({ v: p.id, l: p.name })), 'v', 'l', pid)}</select>
+    <div class="two">
+      <div><label>Bunches</label><input id="f_bun" type="number" inputmode="numeric" min="0" value="${s.bunches ?? ''}" placeholder="0"></div>
+      <div><label>Loose sheets</label><input id="f_loose" type="number" inputmode="numeric" min="0" value="${s.loose_sheets ?? ''}" placeholder="0"></div>
+    </div>
+    <label>Date received</label><input id="f_date" type="date" value="${esc(String(s.date || todayISO()).slice(0, 10))}">
+    <label>Note</label><input id="f_note" placeholder="Supplier or batch (optional)" value="${esc(s.note || '')}">
+    <div class="preview" id="stockPreview"></div>
+    <button class="btn" id="saveStock">${s.id ? 'Save changes' : 'Add stock'}</button>
+    ${s.id ? '<button class="btn danger" id="delStock">Delete entry</button>' : ''}`;
+}
+function bindStock(id) {
+  const calc = () => {
+    const spb = spbOf($('#f_prod').value);
+    const sheets = num($('#f_bun').value) * spb + num($('#f_loose').value);
+    $('#stockPreview').innerHTML = `Total added: <b>${fmtN(sheets)} sheets</b> = ${bunchText(sheets, spb)}`;
+    return sheets;
+  };
+  ['#f_prod', '#f_bun', '#f_loose'].forEach(s => $(s).addEventListener('input', calc)); calc();
+  $('#saveStock').onclick = async () => {
+    const sheets = calc();
+    if (!sheets) return toast('Enter bunches or sheets');
+    const data = { product_id: $('#f_prod').value, bunches: num($('#f_bun').value), loose_sheets: num($('#f_loose').value), sheets, date: $('#f_date').value, note: $('#f_note').value.trim() };
+    if (id) await write({ action: 'update', sheet: 'Stock', id, data }); else await write({ action: 'add', sheet: 'Stock', data });
+    closeSheet(); toast('Stock saved');
+  };
+  if (id && $('#delStock')) $('#delStock').onclick = async () => { await write({ action: 'delete', sheet: 'Stock', id }); closeSheet(); toast('Deleted'); };
+}
+function addStock() {
+  if (!S.products.length) return toast('No products found');
+  openSheet('Add stock', stockForm()); bindStock(null);
+}
+function editStock(id) { openSheet('Stock entry', stockForm(byId(S.stock, id))); bindStock(id); }
+
+/* ============ CUSTOMERS ============ */
+function customerForm(c = {}) {
+  return `
+    <label>Customer name</label><input id="f_name" value="${esc(c.name || '')}" placeholder="Owner name">
+    <label>Mobile number</label><input id="f_mob" type="tel" inputmode="tel" value="${esc(c.mobile || '')}" placeholder="10-digit number">
+    <label>Shop name</label><input id="f_shop" value="${esc(c.shop_name || '')}" placeholder="Shop or firm name">
+    <label>Shop location</label><input id="f_loc" value="${esc(c.location || '')}" placeholder="Area, city">
+    <button class="btn" id="saveCust">${c.id ? 'Save changes' : 'Add customer'}</button>
+    ${c.id ? '<button class="btn danger" id="delCust">Delete customer</button>' : ''}`;
+}
+function bindCustomer(id) {
+  $('#saveCust').onclick = async () => {
+    const name = $('#f_name').value.trim();
+    if (!name) return toast('Enter the customer name');
+    const data = { name, mobile: $('#f_mob').value.trim(), shop_name: $('#f_shop').value.trim(), location: $('#f_loc').value.trim() };
+    if (id) await write({ action: 'update', sheet: 'Customers', id, data }); else await write({ action: 'add', sheet: 'Customers', data });
+    closeSheet(); toast('Customer saved');
+  };
+  if (id && $('#delCust')) $('#delCust').onclick = async () => { await write({ action: 'delete', sheet: 'Customers', id }); closeSheet(); toast('Deleted'); };
+}
+function addCustomer() { openSheet('New customer', customerForm()); bindCustomer(null); }
+function editCustomer(id) {
+  const c = custOf(id);
+  const history = S.deliveries.filter(d => same(d.customer_id, id));
+  openSheet('Customer', customerForm(c) + (history.length ? `<div class="divider"></div><div class="label">${history.length} deliveries · balance ${fmt(history.reduce((t, d) => t + balanceOf(d), 0))}</div>` : ''));
+  bindCustomer(id);
+}
+
+/* ============ DELIVERY ============ */
+function deliveryForm(d = {}) {
+  const custOpts = opts(S.customers.map(c => ({ v: c.id, l: (c.shop_name || c.name) + (c.location ? ' · ' + c.location : '') })), 'v', 'l', d.customer_id);
+  const bankOpts = `<option value="">— Not paid from a bank —</option>` + opts(S.banks.map(b => ({ v: b.id, l: b.name })), 'v', 'l', d.charge_bank_id);
+  const pid = d.product_id || (S.products[0] || {}).id;
+  return `
+    <label>Customer</label>
+    <select id="f_cust">${S.customers.length ? custOpts : '<option value="">Add a customer first</option>'}</select>
+    <div class="two">
+      <div><label>Date</label><input id="f_date" type="date" value="${esc(String(d.date || todayISO()).slice(0, 10))}"></div>
+      <div><label>Due date</label><input id="f_due" type="date" value="${esc(d.due_date || '')}"></div>
+    </div>
+    <label>Product</label>
+    <select id="f_prod">${opts(S.products.map(p => ({ v: p.id, l: p.name })), 'v', 'l', pid)}</select>
+    <div class="two">
+      <div><label>Bunches</label><input id="f_bun" type="number" inputmode="numeric" min="0" value="${d.bunches ?? ''}" placeholder="0"></div>
+      <div><label>Loose sheets</label><input id="f_loose" type="number" inputmode="numeric" min="0" value="${d.loose_sheets ?? ''}" placeholder="0"></div>
+    </div>
+    <div class="two">
+      <div><label>Rate per sheet (₹)</label><input id="f_rate" type="number" inputmode="decimal" min="0" value="${d.rate ?? ''}" placeholder="0"></div>
+      <div><label>Bill number</label><input id="f_bill" value="${esc(d.bill_no || '')}" placeholder="Optional"></div>
+    </div>
+    <label>Status</label>
+    <div class="seg" id="f_statusSeg">
+      <button type="button" class="${(d.status || 'dispatched') === 'dispatched' ? 'on' : ''}" data-v="dispatched">Dispatched</button>
+      <button type="button" class="${d.status === 'delivered' ? 'on' : ''}" data-v="delivered">Delivered</button>
+    </div>
+    <label>Delivery via</label>
+    <div class="seg" id="f_viaSeg">
+      <button type="button" class="${(d.via || 'own') === 'own' ? 'on' : ''}" data-v="own">Own vehicle</button>
+      <button type="button" class="${d.via === 'logistics' ? 'on' : ''}" data-v="logistics">Logistics (Porter etc.)</button>
+    </div>
+    <div class="two">
+      <div><label>Delivery charge (₹)</label><input id="f_charge" type="number" inputmode="decimal" min="0" value="${d.delivery_charge ?? ''}" placeholder="0"></div>
+      <div><label>Paid from bank</label><select id="f_chBank">${bankOpts}</select></div>
+    </div>
+    <label>Did the customer pay the delivery charge?</label>
+    <div class="seg" id="f_payDelSeg">
+      <button type="button" class="${(d.customer_pays_delivery || 'no') === 'yes' ? 'on' : ''}" data-v="yes">Yes, added to bill</button>
+      <button type="button" class="${(d.customer_pays_delivery || 'no') === 'no' ? 'on' : ''}" data-v="no">No, we paid</button>
+    </div>
+    <div class="preview" id="delPreview"></div>
+    <button class="btn" id="saveDel">${d.id ? 'Save changes' : 'Create delivery'}</button>
+    ${d.id ? '<button class="btn danger" id="delDel">Delete delivery</button>' : ''}`;
+}
+
+function bindDelivery(id) {
+  let status = document.querySelector('#f_statusSeg .on').dataset.v;
+  let via = document.querySelector('#f_viaSeg .on').dataset.v;
+  let payDel = document.querySelector('#f_payDelSeg .on').dataset.v;
+  const segs = [['#f_statusSeg', v => status = v], ['#f_viaSeg', v => via = v], ['#f_payDelSeg', v => payDel = v]];
+  segs.forEach(([sel, set]) => document.querySelectorAll(sel + ' button').forEach(b => b.onclick = () => {
+    document.querySelectorAll(sel + ' button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on'); set(b.dataset.v); calc();
+  }));
+
+  const calc = () => {
+    const pid = $('#f_prod').value, spb = spbOf(pid);
+    const sheets = num($('#f_bun').value) * spb + num($('#f_loose').value);
+    const sheetAmt = sheets * num($('#f_rate').value);
+    const charge = num($('#f_charge').value);
+    const total = sheetAmt + (payDel === 'yes' ? charge : 0);
+    const avail = remainingOf(pid) + (id ? num((byId(S.deliveries, id) || {}).sheets) : 0);
+    const warn = sheets > avail ? `<br><span class="tag warn">Only ${fmtN(avail)} sheets in stock</span>` : '';
+    $('#delPreview').innerHTML = `Sheets: <b>${fmtN(sheets)}</b> (${bunchText(sheets, spb)})<br>
+      Sheet amount: <b>${fmt(sheetAmt)}</b><br>
+      Delivery charge added to bill: <b>${fmt(payDel === 'yes' ? charge : 0)}</b><br>
+      Bill total: <b>${fmt(total)}</b>${warn}`;
+    return { sheets, total, charge, pid };
+  };
+  ['#f_prod', '#f_bun', '#f_loose', '#f_rate', '#f_charge'].forEach(s => $(s).addEventListener('input', calc));
+  calc();
+
+  $('#saveDel').onclick = async () => {
+    const { sheets, total, charge, pid } = calc();
+    if (!$('#f_cust').value) return toast('Add a customer first');
+    if (!sheets) return toast('Enter bunches or sheets');
+    if (num($('#f_rate').value) <= 0) return toast('Enter the rate per sheet');
+    const data = {
+      customer_id: $('#f_cust').value, product_id: pid, date: $('#f_date').value, due_date: $('#f_due').value,
+      bunches: num($('#f_bun').value), loose_sheets: num($('#f_loose').value), sheets,
+      rate: num($('#f_rate').value), total, bill_no: $('#f_bill').value.trim(), via,
+      delivery_charge: charge, charge_bank_id: $('#f_chBank').value, customer_pays_delivery: payDel, status
+    };
+    if (id) await write({ action: 'update', sheet: 'Deliveries', id, data });
+    else await write({ action: 'add', sheet: 'Deliveries', data });
+    closeSheet(); toast('Delivery saved');
+  };
+  if (id && $('#delDel')) $('#delDel').onclick = async () => { await write({ action: 'delete', sheet: 'Deliveries', id }); closeSheet(); toast('Deleted'); };
+}
+
+function addDelivery() {
+  if (!S.customers.length) { toast('Add a customer first'); showView('customers'); return; }
+  openSheet('New delivery', deliveryForm()); bindDelivery(null);
+}
+
+function openDelivery(id) {
+  const d = byId(S.deliveries, id);
+  if (!d) return;
+  const c = custOf(d.customer_id), bal = balanceOf(d);
+  const pays = S.payments.filter(p => same(p.delivery_id, id)).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  const payRows = pays.length ? pays.map(p => `<div class="row" style="cursor:default"><div><div>${fmt(p.amount)} · ${p.mode === 'online' ? 'Online' : 'Cash'}</div>
+      <div class="meta">${esc(String(p.date).slice(0, 10))} ${esc(p.time || '')}${p.txn_id ? ' · Txn ' + esc(p.txn_id) : ''}</div></div></div>`).join('') : '<div class="hint">No payments yet</div>';
+  openSheet('Delivery', `
+    <div class="card" style="margin:0 0 14px">
+      <div style="font-weight:700;font-size:17px">${esc(c.shop_name || c.name || 'Customer')}</div>
+      <div class="meta" style="color:var(--muted);font-size:13px">${esc(c.name || '')} · ${esc(c.mobile || '')} · ${esc(c.location || '')}</div>
+      <div class="divider"></div>
+      <div class="list-inline"><span>${esc(prodName(d.product_id))}</span><span class="amt">${fmtN(d.sheets)} sheets</span></div>
+      <div class="hint">${bunchText(num(d.sheets), spbOf(d.product_id))} · ${d.status === 'delivered' ? 'Delivered' : 'Dispatched'} · ${esc(String(d.date).slice(0, 10))}</div>
+      <div class="hint">Bill ${esc(d.bill_no || 'not entered')} · Due ${esc(d.due_date || 'not set')} · ${d.via === 'logistics' ? 'Logistics' : 'Own vehicle'}</div>
+      <div class="divider"></div>
+      <div class="list-inline"><span>Bill total</span><span class="amt">${fmt(d.total)}</span></div>
+      <div class="list-inline"><span>Received</span><span class="amt">${fmt(paidFor(id))}</span></div>
+      <div class="list-inline"><span><b>Balance</b></span><span class="amt">${fmt(bal)}</span></div>
+      ${d.delivery_charge ? `<div class="hint">Delivery charge ${fmt(d.delivery_charge)} · ${d.customer_pays_delivery === 'yes' ? 'customer paid' : 'we paid'}${d.charge_bank_id ? ' from ' + esc(bankOf(d.charge_bank_id).name || 'bank') : ''}</div>` : ''}
+    </div>
+    <div class="section-title"><span>Payments</span></div>
+    <div class="card flat">${payRows}</div>
+    ${bal > 0 ? `<button class="btn" id="recPay">Record payment</button>` : ''}
+    ${d.status !== 'delivered' ? `<button class="btn alt" id="markDel">Mark as delivered</button>` : ''}
+    ${bal > 0 ? `<button class="btn" data-act="wa" data-id="${id}">Send WhatsApp reminder</button>` : ''}
+    <button class="btn alt" id="editDel">Edit delivery</button>`);
+  if ($('#recPay')) $('#recPay').onclick = () => addPayment(d.customer_id, id);
+  if ($('#markDel')) $('#markDel').onclick = async () => { await write({ action: 'update', sheet: 'Deliveries', id, data: { status: 'delivered' } }); closeSheet(); toast('Marked delivered'); };
+  $('#editDel').onclick = () => { openSheet('Edit delivery', deliveryForm(d)); bindDelivery(id); };
+}
+
+/* ============ PAYMENTS ============ */
+let pendingShot = null;
+
+async function compressImage(file) {
+  const img = new Image();
+  img.src = URL.createObjectURL(file);
+  await img.decode();
+  const max = 1400, scale = Math.min(1, max / Math.max(img.width, img.height));
+  const c = document.createElement('canvas');
+  c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', 0.75).split(',')[1];
+}
+
+function paymentForm(customerId, deliveryId) {
+  const cust = customerId || (S.customers[0] || {}).id;
+  const dels = S.deliveries.filter(d => same(d.customer_id, cust) && balanceOf(d) > 0);
+  const delOpts = `<option value="">Advance / unallocated</option>` + dels.map(d => `<option value="${d.id}" ${same(d.id, deliveryId) ? 'selected' : ''}>${esc(d.bill_no ? 'Bill ' + d.bill_no : 'Delivery ' + String(d.date).slice(0, 10))} · balance ${fmt(balanceOf(d))}</option>`).join('');
+  const bankOptsHtml = S.banks.length ? opts(S.banks.map(b => ({ v: b.id, l: b.name })), 'v', 'l', '') : '';
+  return `
+    <label>Customer</label>
+    <select id="f_pcust">${opts(S.customers.map(c => ({ v: c.id, l: c.shop_name || c.name })), 'v', 'l', cust)}</select>
+    <label>Against delivery</label>
+    <select id="f_pdel">${delOpts}</select>
+    <div class="two">
+      <div><label>Amount (₹)</label><input id="f_pamt" type="number" inputmode="decimal" min="0" placeholder="0"></div>
+      <div><label>Date</label><input id="f_pdate" type="date" value="${todayISO()}"></div>
+    </div>
+    <label>Time</label><input id="f_ptime" type="time" value="${nowTime()}">
+    <label>Received via</label>
+    <div class="seg" id="f_modeSeg">
+      <button type="button" class="on" data-v="cash">Cash</button>
+      <button type="button" data-v="online">Online</button>
+    </div>
+    <div id="onlineBox" style="display:none">
+      <label>Bank account received</label>
+      <select id="f_pbank">${bankOptsHtml || '<option value="">Add a bank account first</option>'}</select>
+      <label>Transaction ID (UTR)</label><input id="f_ptxn" placeholder="Optional but recommended">
+      <label>Payment screenshot</label><input id="f_pshot" type="file" accept="image/*">
+      <img id="shotPreview" class="shot" style="display:none" alt="">
+    </div>
+    <div class="hint">Enter less than the balance for a partial payment. The remaining balance stays open.</div>
+    <button class="btn" id="savePay">Save payment</button>`;
+}
+
+function bindPayment(customerId) {
+  let mode = 'cash';
+  document.querySelectorAll('#f_modeSeg button').forEach(b => b.onclick = () => {
+    document.querySelectorAll('#f_modeSeg button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on'); mode = b.dataset.v;
+    $('#onlineBox').style.display = mode === 'online' ? 'block' : 'none';
+  });
+  $('#f_pcust').onchange = () => { openSheet('Record payment', paymentForm($('#f_pcust').value, null)); bindPayment($('#f_pcust').value); };
+  pendingShot = null;
+  $('#f_pshot').onchange = async e => {
+    const f = e.target.files[0]; if (!f) return;
+    const b64 = await compressImage(f); pendingShot = { base64: b64, mime: 'image/jpeg', name: 'payment-' + Date.now() + '.jpg' };
+    $('#shotPreview').src = 'data:image/jpeg;base64,' + b64; $('#shotPreview').style.display = 'block';
+  };
+  $('#savePay').onclick = async () => {
+    const amount = num($('#f_pamt').value);
+    if (!amount) return toast('Enter the amount received');
+    const delId = $('#f_pdel').value;
+    if (delId) {
+      const d = byId(S.deliveries, delId);
+      if (d && amount > balanceOf(d)) return toast('Amount is more than the balance');
+    }
+    if (mode === 'online' && !$('#f_pbank').value) return toast('Choose the bank account');
+    $('#savePay').disabled = true; $('#savePay').textContent = 'Saving...';
+    let shotUrl = '';
+    try {
+      if (mode === 'online' && pendingShot) {
+        const r = await api('POST', { action: 'upload', data: pendingShot });
+        shotUrl = r.url || '';
+      }
+      await write({ action: 'add', sheet: 'Payments', data: {
+        date: $('#f_pdate').value, time: $('#f_ptime').value, customer_id: $('#f_pcust').value,
+        delivery_id: delId, amount, mode, bank_id: mode === 'online' ? $('#f_pbank').value : '',
+        txn_id: mode === 'online' ? $('#f_ptxn').value.trim() : '', screenshot_url: shotUrl
+      }});
+      closeSheet(); toast('Payment recorded');
+    } catch (e) {
+      $('#savePay').disabled = false; $('#savePay').textContent = 'Save payment';
+    }
+  };
+}
+
+function addPayment(customerId, deliveryId) {
+  if (!S.customers.length) { toast('Add a customer first'); showView('customers'); return; }
+  openSheet('Record payment', paymentForm(customerId, deliveryId));
+  bindPayment(customerId);
+}
+
+function openPayment(id) {
+  const p = byId(S.payments, id);
+  if (!p) return;
+  const c = custOf(p.customer_id);
+  openSheet('Payment', `
+    <div class="card" style="margin:0 0 14px">
+      <div style="font-weight:700;font-size:17px">${fmt(p.amount)}</div>
+      <div class="meta" style="color:var(--muted);font-size:13px">${esc(c.shop_name || c.name || '')}</div>
+      <div class="divider"></div>
+      <div class="hint">${esc(String(p.date).slice(0, 10))} at ${esc(p.time || '—')} · ${p.mode === 'online' ? 'Online' : 'Cash'}</div>
+      ${p.mode === 'online' ? `<div class="hint">Received in ${esc(bankOf(p.bank_id).name || 'bank')}${p.txn_id ? ' · Txn ' + esc(p.txn_id) : ''}</div>` : ''}
+      ${p.screenshot_url ? `<img class="shot" src="${esc(p.screenshot_url)}" alt="Payment screenshot">` : ''}
+    </div>
+    <button class="btn danger" id="delPay">Delete payment</button>`);
+  $('#delPay').onclick = async () => { await write({ action: 'delete', sheet: 'Payments', id }); closeSheet(); toast('Deleted'); };
+}
+
+/* ============ BANKS ============ */
+function bankForm(b = {}) {
+  return `
+    <label>Account nickname</label><input id="f_bname" value="${esc(b.name || '')}" placeholder="e.g. Main current account">
+    <label>Bank name</label><input id="f_bbank" value="${esc(b.bank_name || '')}" placeholder="e.g. HDFC Bank">
+    <label>Notes</label><input id="f_bnotes" value="${esc(b.notes || '')}" placeholder="Optional">
+    <button class="btn" id="saveBank">${b.id ? 'Save changes' : 'Add bank account'}</button>
+    ${b.id ? `<div class="divider"></div><div class="label">Recent activity</div>${bankLedger(b.id)}` : ''}`;
+}
+function bankLedger(bid) {
+  const ins = S.payments.filter(p => same(p.bank_id, bid)).map(p => ({ date: p.date, time: p.time, amt: num(p.amount), txt: 'Received' + (p.txn_id ? ' · Txn ' + p.txn_id : '') }));
+  const outs = S.deliveries.filter(d => same(d.charge_bank_id, bid) && num(d.delivery_charge) > 0).map(d => ({ date: d.date, time: '', amt: -num(d.delivery_charge), txt: 'Delivery charge' }));
+  const rows = [...ins, ...outs].sort((a, b) => (String(b.date) + String(b.time)).localeCompare(String(a.date) + String(a.time)));
+  return rows.length ? rows.map(r => `<div class="row" style="cursor:default"><div><div>${esc(r.txt)}</div>
+    <div class="meta">${esc(String(r.date).slice(0, 10))} ${esc(r.time || '')}</div></div>
+    <div class="amt ${r.amt < 0 ? 'muted' : ''}">${r.amt < 0 ? '−' : '+'}${fmt(Math.abs(r.amt))}</div></div>`).join('') : '<div class="hint">No activity yet</div>';
+}
+function bindBank(id) {
+  $('#saveBank').onclick = async () => {
+    const name = $('#f_bname').value.trim();
+    if (!name) return toast('Enter an account nickname');
+    const data = { name, bank_name: $('#f_bbank').value.trim(), notes: $('#f_bnotes').value.trim() };
+    if (id) await write({ action: 'update', sheet: 'Banks', id, data }); else await write({ action: 'add', sheet: 'Banks', data });
+    closeSheet(); toast('Bank saved');
+  };
+}
+function addBank() { openSheet('New bank account', bankForm()); bindBank(null); }
+function openBank(id) { openSheet('Bank account', bankForm(byId(S.banks, id))); bindBank(id); }
+
+/* ============ WHATSAPP REMINDERS ============ */
+const BIZ_KEY = 'inv_biz_name';
+const biz = () => localStorage.getItem(BIZ_KEY) || '';
+const fmtDate = s => { if (!s) return ''; const [y, m, d] = String(s).slice(0, 10).split('-'); return `${d}/${m}/${y}`; };
+const waNumber = m => { let n = String(m || '').replace(/\D/g, ''); if (n.length === 10) n = '91' + n; return n; };
+let remLang = 'gu';
+
+const TEMPLATES = {
+  gu: (c, d, bal) => [
+    `નમસ્તે ${c.name || ''},`,
+    `${c.shop_name ? c.shop_name + ' માટે ' : ''}${prodName(d.product_id)} ${d.bill_no ? 'ના બિલ નં. ' + d.bill_no + ' ' : 'ની ડિલિવરી '}(તા. ${fmtDate(d.date)}) ની બાકી રકમ ${fmt(bal)} છે.`,
+    d.due_date ? `કૃપા કરીને ${fmtDate(d.due_date)} સુધીમાં ચુકવણી કરશો.` : 'કૃપા કરીને જલ્દી ચુકવણી કરશો.',
+    'આભાર.',
+    biz() ? '— ' + biz() : ''
+  ].filter(Boolean).join('\n'),
+  en: (c, d, bal) => [
+    `Hello ${c.name || ''},`,
+    `This is a gentle reminder that ${fmt(bal)} is pending for ${c.shop_name ? c.shop_name + ' ' : ''}${prodName(d.product_id)}${d.bill_no ? ' (bill no. ' + d.bill_no + ')' : ''}, delivered on ${fmtDate(d.date)}.`,
+    d.due_date ? `Kindly complete the payment by ${fmtDate(d.due_date)}.` : 'Kindly complete the payment at your earliest convenience.',
+    'Thank you.',
+    biz() ? '— ' + biz() : ''
+  ].filter(Boolean).join('\n')
+};
+
+function openReminder(id) {
+  const d = byId(S.deliveries, id);
+  if (!d) return;
+  const c = custOf(d.customer_id);
+  if (!c.mobile) toast('Mobile number missing. You can still copy the message.');
+  openSheet('WhatsApp reminder', `
+    <div class="seg" id="remLang">
+      <button type="button" class="${remLang === 'gu' ? 'on' : ''}" data-v="gu">ગુજરાતી</button>
+      <button type="button" class="${remLang === 'en' ? 'on' : ''}" data-v="en">English</button>
+    </div>
+    <label>Message (you can edit it before sending)</label>
+    <textarea id="remText" rows="8"></textarea>
+    <button class="btn" id="remSend">Send on WhatsApp</button>
+    <button class="btn alt" id="remCopy">Copy message</button>`);
+  const ta = $('#remText');
+  ta.value = TEMPLATES[remLang](c, d, balanceOf(d));
+  document.querySelectorAll('#remLang button').forEach(b => b.onclick = () => {
+    remLang = b.dataset.v;
+    document.querySelectorAll('#remLang button').forEach(x => x.classList.toggle('on', x === b));
+    ta.value = TEMPLATES[remLang](c, d, balanceOf(d));
+  });
+  $('#remSend').onclick = () => window.open(`https://wa.me/${waNumber(c.mobile)}?text=${encodeURIComponent(ta.value)}`, '_blank');
+  $('#remCopy').onclick = async () => {
+    try { await navigator.clipboard.writeText(ta.value); toast('Message copied'); }
+    catch (e) { toast('Copy not allowed here. Select and copy the text.'); }
+  };
+}
+
+/* ============ NAVIGATION & EVENTS ============ */
+const TITLES = { stock: 'Stock', deliveries: 'Deliveries', dashboard: 'Dashboard', payments: 'Payments', customers: 'Customers', setup: 'Setup' };
+const FAB_ACTION = { stock: addStock, deliveries: addDelivery, dashboard: addDelivery, payments: () => addPayment(), customers: addCustomer, setup: null };
+let currentView = 'dashboard';
+
+function showView(name) {
+  currentView = name;
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.view === name));
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  $('#view-' + name).classList.add('active');
+  $('#title').textContent = TITLES[name];
+  $('#fab').style.display = name === 'setup' ? 'none' : 'grid';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => showView(t.dataset.view));
+$('#setupBtn').onclick = () => showView('setup');
+$('#themeBtn').onclick = () => applyTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+$('#syncBtn').onclick = () => load();
+$('#fab').onclick = () => FAB_ACTION[currentView] && FAB_ACTION[currentView]();
+$('#addBankBtn').onclick = addBank;
+$('#addCustomerBtn').onclick = addCustomer;
+$('#saveUrlBtn').onclick = () => {
+  const u = $('#scriptUrl').value.trim();
+  if (!u.startsWith('https://script.google.com/')) return toast('That does not look like a script URL');
+  localStorage.setItem(LS_KEY, u);
+  localStorage.setItem(BIZ_KEY, $('#bizName').value.trim());
+  toast('Connected'); load(); showView('dashboard');
+};
+
+// One click handler for every list row
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]');
+  if (!el || !el.dataset.act) return;
+  const id = el.dataset.id;
+  const act = el.dataset.act;
+  if (act === 'stock') editStock(id);
+  if (act === 'delivery') openDelivery(id);
+  if (act === 'payment') openPayment(id);
+  if (act === 'customer') editCustomer(id);
+  if (act === 'bank') openBank(id);
+  if (act === 'wa') openReminder(id);
+});
+
+/* ============ START ============ */
+applyTheme(localStorage.getItem(THEME_KEY) || 'light');
+$('#scriptUrl').value = localStorage.getItem(LS_KEY) || '';
+$('#bizName').value = biz();
+if (url()) { load(); showView('dashboard'); }
+else { showView('setup'); toast('Connect your inventory script first'); }
+</script>
+</body>
+</html>
