@@ -7,6 +7,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Inventory">
 <meta name="theme-color" content="#b9a8d8">
+<link rel="apple-touch-icon" sizes="180x180" href="icon.png">
+<link rel="icon" type="image/png" sizes="180x180" href="icon.png">
 <title>Inventory</title>
 <style>
   :root {
@@ -273,6 +275,7 @@ async function api(method, payload) {
 async function load() {
   try {
     const d = await api('GET');
+    if (!d.products) throw new Error('Wrong script URL. Open Setup and paste the INVENTORY script /exec URL.');
     S.products = d.products || []; S.stock = d.stock || []; S.customers = d.customers || [];
     S.deliveries = d.deliveries || []; S.payments = d.payments || []; S.banks = d.banks || [];
     render();
@@ -280,8 +283,15 @@ async function load() {
 }
 
 async function write(payload) {
-  try { const r = await api('POST', payload); await load(); return r; }
-  catch (e) { toast('Save failed'); throw e; }
+  try {
+    const r = await api('POST', payload);
+    if (r.error) throw new Error(r.error);
+    await load();
+    return r;
+  } catch (e) {
+    toast('Save failed: ' + (e.message || 'check your script'));
+    throw e;
+  }
 }
 
 /* ============ CALCULATIONS ============ */
